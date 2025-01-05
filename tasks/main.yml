@@ -1,0 +1,49 @@
+---
+- name: Install MySQL packages in RedHat
+  ansible.builtin.yum:
+    name: mysql-server
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Install MySQL packages in Debian
+  ansible.builtin.apt:
+    name: mysql-server
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install Python3 Mysql Dependencies
+  apt:
+    name: python3-mysqldb
+    state: present
+
+- name: Start and enable MySQL service
+  ansible.builtin.service:
+    name: mysql
+    state: started
+    enabled: true
+
+- name: Set MySQL root password
+  ansible.builtin.command: >
+    mysqladmin -u root password "{{ mysql_root_password }}"
+  when: mysql_root_password != ""
+
+- name: Configure MySQL
+  ansible.builtin.template:
+    src: my.cnf.j2
+    dest: /etc/my.cnf
+  notify: Restart MySQL
+
+- name: Create databases
+  ansible.builtin.mysql_db:
+    name: "{{ item.name }}"
+    state: present
+  loop: "{{ mysql_databases }}"
+
+- name: Create users
+  ansible.builtin.mysql_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv }}"
+    host: "{{ item.host | default('localhost') }}"
+    state: present
+  loop: "{{ mysql_users }}"
